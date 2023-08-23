@@ -1,0 +1,122 @@
+#cloud-config
+hostname: landscape-server
+timezone: America/Toronto
+fqdn: landscape-server
+
+ntp:
+  enabled: true
+  ntp_client: ntp
+  servers:
+    - 0.pool.utoronto.ca
+    - 1.pool.utoronto.ca
+    - 2.pool.utoronto.ca
+
+# Add users to the system.
+# Users are added after groups are added.
+users:
+  - name: root
+    passwd: $y$j9T$EPcsITgj4XNI/o9v7OOCp/$niK1K/bSV07Lwc5X3lZJ55bOfVU5rjlEZaiwtQZD7P.
+    ssh_authorized_keys:
+      - ssh-rsa ...
+  - name: vss-admin
+    gecos: VSS Admin
+    sudo: ALL=(ALL) ALL
+    groups: users, admin
+    lock_passwd: false
+    shell: /bin/bash
+    passwd: $y$j9T$EPcsITgj4XNI/o9v7OOCp/$niK1K/bSV07Lwc5X3lZJ55bOfVU5rjlEZaiwtQZD7P.
+    ssh_authorized_keys:
+      - ssh-rsa ...
+packages:
+  - ntp
+  - git
+  - httpie
+  - postfix
+  - firewalld
+  - mailutils
+  - python3-venv
+  - python3-dev
+  - build-essential
+  - inetutils-traceroute
+  - wget 
+  - software-properties-common
+
+write_files:
+- path: /etc/update-motd.d/10-motd-vss
+  permissions: '0755'
+  content: |
+    #!/bin/bash
+
+    INSTANCE_ID=`vmware-rpctool "info-get guestinfo.ut.vss.instance.id"`
+    INSTANCE_NAME=`vmware-rpctool "info-get guestinfo.ut.vss.instance.name"`
+    printf "\n"
+    printf "  University of Toronto ITS Private Cloud Instance\n"
+    printf "\n"
+    printf "  Name:     $INSTANCE_NAME\n"
+    printf "  ID:       $INSTANCE_ID\n"
+- path: /etc/ssh/sshd_config.d/50-ut-eis-vss.conf
+  owner: root
+  content: |
+    Port 2226
+    PermitRootLogin without-password
+    PasswordAuthentication yes
+    PubkeyAuthentication yes
+    X11Forwarding no
+    UseDNS no
+- path: /etc/firewalld/services/ssh_2226.xml
+  content: |
+    <?xml version="1.0" encoding="utf-8"?>
+    <service>
+      <short>SSH-2226</short>
+      <description>SSH service on port 2226</description>
+      <port protocol="tcp" port="2226"/>
+    </service>
+- path: /etc/sysctl.d/60-disable-ipv6.conf
+  owner: root
+  content: |
+    net.ipv6.conf.all.disable_ipv6=1
+    net.ipv6.conf.default.disable_ipv6=1
+- path: /etc/bash.bashrc
+  append: true
+  content: |
+    # vim:ts=4:sw=4
+    export HISTTIMEFORMAT="%F %T "
+    export HISTFILESIZE=1000
+    export HISTSIZE=1000
+
+    PROMPT_COMMAND=$(history -a)
+    typeset -r PROMPT_COMMAND
+
+    trap 'logger -p local1.notice -t bash -i -- "$USER":"$BASH_COMMAND"' DEBUG
+
+runcmd:
+- chmod -x /etc/update-motd.d/50-motd-news
+- chmod -x /etc/update-motd.d/10-help-text
+- sysctl -w net.ipv6.conf.all.disable_ipv6=1
+- sysctl -w net.ipv6.conf.default.disable_ipv6=1
+- mv /home /data/homes && ln -s /data/homes /home
+- systemctl enable firewalld
+- systemctl start --no-block firewalld
+- firewall-cmd --permanent --zone=public --remove-service=dhcpv6-client
+- firewall-cmd --permanent --zone=public --add-service=ssh_2226
+- firewall-cmd --permanent --zone=public --add-service=http
+- firewall-cmd --permanent --zone=public --add-service=https
+- firewall-cmd --reload
+- sed -i 's#^\(GRUB_CMDLINE_LINUX_DEFAULT="quiet splash\)"$#\1 fsck.mode=force fsck.repair=yes"#' /etc/default/grub
+- /usr/sbin/update-grub
+- touch /etc/cloud/cloud-init.disabled
+# landscape [start]
+- add-apt-repository ppa:landscape/self-hosted-23.03
+- apt update && sudo apt -y install landscape-server-quickstart
+# Landscape [end]
+
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+power_state:
+  delay: now
+  mode: reboot
+  message: Rebooting the OS
+  condition: if [ -e /var/run/reboot-required ]; then exit 0; else exit 1; fi
+
+final_message: "The system is finally up, after $UPTIME seconds"

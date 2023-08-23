@@ -1,0 +1,62 @@
+####################################################
+# VSS-CLI Config Spec for ContentLibrary deployment#
+####################################################
+built: clib         # Required: Do not remove.
+machine:
+    item: Ubuntu-22.04 # Required: Source content library id OVF.
+    name: landscape-server    # Required: Target virtual machine name.
+    os: ubuntu64Guest     # Required: Guest Operating System name or Id.
+    folder: group-v13966     # Required: Folder name, path or ID.
+    storage-type: ssd     # Optional: Storage Type to use for this VM. ssd or hdd
+    cpu: 2              # Optional: CPU count (Default: 1).
+    memory: 4            # Optional: Memory in GB (Default: 1GB).
+    firmware: efi
+    domain: FD3
+# Disks (Uncomment to enable)
+    disks:
+       - capacity_gb: 60              #  OS Disk
+#       - capacity_gb: 20              #  Data disk
+# Additional (Uncomment to enable)
+#  domain:                # Optional: Domain name or ID to deploy (Default: provided by API).
+    power_on: true       # Optional: Power on after successful deployment.
+#  template: false        # Optional: Mark resulting vm as template.
+#  tpm: true              # Optional: Enable vTrusted Platform Module Device.
+#  vbs: true              # Optional: Enable Virtualization Based Security.
+networking:
+    interfaces:
+       -  network: dvportgroup-545783  # Required: Network name or network ID.
+          type: vmxnet3   # Required: Defaults to vmxnet3
+# OVF additional parameters (Uncomment to enable)
+# PropertyParams and DeploymentOptionParams.
+# additional_parameters: additional_params.yaml
+# Day0 configuration (Uncomment to enable)
+#day-zero:
+#  config: configuration.txt
+#  id-token: id-token.txt
+# Cloud init post-deployment config (Uncomment to enable)
+cloud_init:
+    user_data: cloud-init/userdata.yaml
+    network_data: cloud-init/network.yaml
+extra-config:
+    - disk.EnableUUID=TRUE
+# metadata required
+metadata:
+    client: VSS   # Required: Client department
+  # Required: Description of virtual machine
+    description: >
+        VSS Public Ubuntu Landscape Quickstart Installation.
+    usage: Prod           # Optional: Usage between Prod | Dev | QA | Test (default: Test)
+    inform:               # Optional: list of additional contact email addresses (default: user account)
+       -  orlando@eis.utoronto.ca
+#  admin:                  # Optional: VM Administrator (Default: user submitting request)
+#    name:                 # (Admin) Required: VM Administrator full name
+#    email:                # (Admin) Required: VM Administrator email i.e. user@utoronto.ca
+#    phone:                # (Admin) Required: VM Administrator phone i.e. 416-123-2341
+# Recommended Metadata (Uncomment to enable)
+#   notes:                  # Optional: list of key-value items to be set in Key: value form.
+#     - BillingCode: 12345
+#     - Documentation: https://uoft.me/service-docs
+    vss_service: Hosting     # Optional/Required for ITS: VSS Service name or service id
+    vss_options:          # Optional: VSS options reset_on_restore, reboot_on_restore
+       -  reset_on_restore
+       -  reboot_on_restore
